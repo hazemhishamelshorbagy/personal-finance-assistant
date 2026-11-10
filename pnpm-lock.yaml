@@ -115,6 +115,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@pfa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       dotenv:
         specifier: ^18.0.10
         version: 18.0.10
@@ -140,6 +143,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@pfa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       next:
         specifier: 16.4.5
         version: 16.4.5(@babel/core@7.29.13(supports-color@7.2.0))(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -174,6 +180,8 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+
+  packages/shared: {}
 
 packages:
 
