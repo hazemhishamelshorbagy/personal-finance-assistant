@@ -1,7 +1,15 @@
 import express from "express";
-
+import "dotenv/config";
+import { env } from "./config/env";
+import cors from "cors";
 const app = express();
-const PORT = 4000;
+const PORT = env.PORT;
+
+app.use(
+  cors({
+   origin: env.WEB_ORIGIN
+  }),
+);
 
 app.use(express.json());
 
