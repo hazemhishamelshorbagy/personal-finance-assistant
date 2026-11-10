@@ -4,6 +4,7 @@ import { env } from "./config/env";
 import cors from "cors";
 import { errorHandler } from "./middleware/error-handler";
 import { AppError } from "./errors/app-error";
+import healthRouter from "./routes/health.routes.js";
 const app = express();
 const PORT = env.PORT;
 
@@ -15,12 +16,8 @@ app.use(
 
 app.use(express.json());
 
-app.get("/api/health", (_req, res) => {
-  res.json({
-    status: "healthy",
-    service: "personal-finance-api",
-  });
-});
+// Routes
+app.use("/api", healthRouter);
 app.use((_req, _res, next) => {
   next(new AppError("Route not found", 404));
 });
