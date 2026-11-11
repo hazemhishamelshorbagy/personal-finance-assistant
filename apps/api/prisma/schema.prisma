@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +5,49 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Currency {
+  EGP
+  USD
+  EUR
+}
+
+enum AccountType {
+  CASH
+  BANK_ACCOUNT
+  CREDIT_CARD
+  SAVINGS_ACCOUNT
+  DIGITAL_WALLET
+}
+
+model User {
+  id                String              @id @default(uuid())
+  email             String              @unique
+  name              String?
+  emailVerified     DateTime?
+  image             String?
+  financialAccounts financialAccounts[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+}
+
+model financialAccounts {
+  id             String      @id @default(uuid())
+  name           String
+  type           AccountType
+  currency       Currency
+  openingBalance Decimal     @default(0) @db.Decimal(19, 4)
+  currentBalance Decimal?     @default(0) @db.Decimal(19, 4)
+  isActive       Boolean     @default(true)
+
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  creditLimit        Decimal? @db.Decimal(19, 4)
+  outstandingBalance Decimal? @db.Decimal(19, 4)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId])
+  @@map("accounts")
 }
