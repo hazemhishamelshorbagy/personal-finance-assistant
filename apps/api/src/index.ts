@@ -6,6 +6,8 @@ import { errorHandler } from "./middleware/error-handler";
 import { AppError } from "./errors/app-error";
 import healthRouter from "./routes/health.routes.js";
 import { prisma } from "./lib/prisma.js";
+import authRouter from "./routes/auth.routes.js";
+import accountsRouter from "./routes/accounts.routes.js";
 const app = express();
 const PORT = env.PORT;
 
@@ -18,7 +20,12 @@ app.use(
 app.use(express.json());
 
 // Routes
-app.use("/api", healthRouter);
+  app.use("/api", healthRouter);
+  // show qccounts for juser 
+  app.use("/api/accounts", accountsRouter);
+  // regitser user
+app.use("/api/auth", authRouter);
+
 app.use((_req, _res, next) => {
   next(new AppError("Route not found", 404));
 });
