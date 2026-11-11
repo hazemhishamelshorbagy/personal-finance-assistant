@@ -25,6 +25,8 @@ app.use(express.json());
   app.use("/api/accounts", accountsRouter);
   // regitser user
 app.use("/api/auth", authRouter);
+//login user
+app.use("/api/auth", authRouter);
 
 app.use((_req, _res, next) => {
   next(new AppError("Route not found", 404));
