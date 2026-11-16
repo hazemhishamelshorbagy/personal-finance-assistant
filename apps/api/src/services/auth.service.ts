@@ -16,6 +16,7 @@ export async function registerWithEmail(input: unknown) {
 
   const email = result.data.email.toLowerCase();
 
+  // Check if the email is already registered
   const existingUser = await prisma.user.findUnique({
     where: { email },
   });
@@ -23,9 +24,10 @@ export async function registerWithEmail(input: unknown) {
   if (existingUser) {
     throw new AppError("Email is already registered", 409);
   }
-
+  //password hashing argon2 
   const passwordHash = await hashPassword(result.data.password);
 
+  //create
   const user = await prisma.user.create({
     data: {
       email,
@@ -82,3 +84,4 @@ export async function loginWithEmail(input: unknown) {
     createdAt: user.createdAt,
   };
 }
+

@@ -3,34 +3,35 @@ import "dotenv/config";
 import { env } from "./config/env";
 import cors from "cors";
 import { errorHandler } from "./middleware/error-handler";
-import { AppError } from "./errors/app-error";
+import { AppError } from "./errors/app-error.js";
 import healthRouter from "./routes/health.routes.js";
 import { prisma } from "./lib/prisma.js";
 import authRouter from "./routes/auth.routes.js";
 import accountsRouter from "./routes/accounts.routes.js";
+import cookieParser from "cookie-parser";
 const app = express();
 const PORT = env.PORT;
 
 app.use(
   cors({
-   origin: env.WEB_ORIGIN
+    origin: env.WEB_ORIGIN,
+    credentials: true,
   }),
 );
 
 app.use(express.json());
-
+app.use(cookieParser());
 // Routes
-  app.use("/api", healthRouter);
-  // show qccounts for juser 
-  app.use("/api/accounts", accountsRouter);
-  // regitser user
-app.use("/api/auth", authRouter);
-//login user
+app.use("/api", healthRouter);
+// show qccounts for juser
+app.use("/api/accounts", accountsRouter);
+// regitser user
 app.use("/api/auth", authRouter);
 
 app.use((_req, _res, next) => {
   next(new AppError("Route not found", 404));
 });
+
 app.use(errorHandler);
 async function startServer() {
   try {
