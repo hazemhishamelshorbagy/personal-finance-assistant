@@ -1,3 +1,4 @@
+// خطأ خاص بأخطاء التطبيق التي تحتاج إلى رمز HTTP محدد.
 export class AppError extends Error {
   constructor(
     message: string,
@@ -5,6 +6,7 @@ export class AppError extends Error {
   ) {
     super(message);
 
+    // تمييز هذا الخطأ ليتعامل معه معالج الأخطاء العام.
     this.name = "AppError";
   }
 }

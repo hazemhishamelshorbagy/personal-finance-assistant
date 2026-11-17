@@ -3,6 +3,7 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// إعداد مسارات مخطط Prisma والترحيلات ومصدر اتصال قاعدة البيانات.
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {

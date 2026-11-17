@@ -8,21 +8,21 @@ export async function requireAuth(
   next: NextFunction,
 ) {
   try {
-    // Read the session token from the browser cookie
+    // قراءة رمز الجلسة من ملف تعريف الارتباط الذي أرسله المتصفح.
     const token = req.cookies?.pfa_session;
 
     if (!token) {
       throw new AppError("Authentication required", 401);
     }
 
-    // Find a valid session in the database
+    // التحقق من وجود جلسة غير منتهية مرتبطة بهذا الرمز.
     const session = await findValidSession(token);
 
     if (!session) {
       throw new AppError("Invalid or expired session", 401);
     }
 
-    // Make the authenticated user available to the next handler
+    // إتاحة بيانات المستخدم ورمز الجلسة للمسار الذي سيعالج الطلب.
     res.locals.authUser = session.user;
     res.locals.sessionToken = token;
 

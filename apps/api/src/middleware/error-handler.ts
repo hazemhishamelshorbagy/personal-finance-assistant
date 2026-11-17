@@ -9,6 +9,7 @@ export const errorHandler: ErrorRequestHandler = (
 ) => {
   console.error(err);
 
+  // أخطاء التطبيق تحمل رمز HTTP ورسالة مناسبة يمكن إرجاعها للعميل.
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
       success: false,
@@ -20,6 +21,7 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
+  // إخفاء تفاصيل الأخطاء غير المتوقعة عن العميل وإرجاع خطأ عام.
   res.status(500).json({
     success: false,
     error: {

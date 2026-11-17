@@ -3,6 +3,7 @@ import { hashPassword, verifyPassword } from "../lib/password.js";
 import { AppError } from "../errors/app-error.js";
 import { loginSchema, registerSchema } from "../validators/auth.validator.js";
 
+// التحقق من بيانات التسجيل وتخزين كلمة المرور مجزأة.
 export async function registerWithEmail(input: unknown) {
   const result = registerSchema.safeParse(input);
 
@@ -16,7 +17,7 @@ export async function registerWithEmail(input: unknown) {
 
   const email = result.data.email.toLowerCase();
 
-  // Check if the email is already registered
+  // توحيد حالة أحرف البريد وفحص عدم استخدامه من قبل.
   const existingUser = await prisma.user.findUnique({
     where: { email },
   });
@@ -24,10 +25,11 @@ export async function registerWithEmail(input: unknown) {
   if (existingUser) {
     throw new AppError("Email is already registered", 409);
   }
-  //password hashing argon2 
+
+  // تجزئة كلمة المرور قبل حفظها في قاعدة البيانات.
   const passwordHash = await hashPassword(result.data.password);
 
-  //create
+  // إنشاء المستخدم وإرجاع الحقول الآمنة فقط دون تجزئة كلمة المرور.
   const user = await prisma.user.create({
     data: {
       email,
@@ -46,6 +48,7 @@ export async function registerWithEmail(input: unknown) {
   return user;
 }
 
+// التحقق من بيانات الدخول ثم إرجاع بيانات المستخدم غير الحساسة.
 export async function loginWithEmail(input: unknown) {
   const result = loginSchema.safeParse(input);
 
@@ -59,6 +62,7 @@ export async function loginWithEmail(input: unknown) {
 
   const email = result.data.email.toLowerCase();
 
+  // البحث بالبريد الموحّد؛ تُستخدم رسالة عامة لبيانات الدخول غير الصحيحة.
   const user = await prisma.user.findUnique({
     where: { email },
   });
@@ -76,6 +80,7 @@ export async function loginWithEmail(input: unknown) {
     throw new AppError("Invalid email or password", 401);
   }
 
+  // عدم تضمين تجزئة كلمة المرور ضمن بيانات المستخدم المعادة.
   return {
     id: user.id,
     email: user.email,

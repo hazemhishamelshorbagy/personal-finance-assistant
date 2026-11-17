@@ -1,18 +1,22 @@
+// توليد عميل Prisma في المسار الذي تستورده منه خدمات واجهة API.
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
 }
 
+// تحديد PostgreSQL كمصدر البيانات؛ عنوان الاتصال يُمرر من إعدادات Prisma.
 datasource db {
   provider = "postgresql"
 }
 
+// العملات التي يمكن استخدامها في الحسابات المالية.
 enum Currency {
   EGP
   USD
   EUR
 }
 
+// أنواع الحسابات التي يدعمها التطبيق.
 enum AccountType {
   CASH
   BANK_ACCOUNT
@@ -21,6 +25,7 @@ enum AccountType {
   DIGITAL_WALLET
 }
 
+// المستخدم وارتباطاته بالحسابات والجلسات والمعاملات.
 model User {
   id                String              @id @default(uuid())
   email             String              @unique
@@ -31,11 +36,20 @@ model User {
   financialAccounts financialAccounts[]
   accounts          Account[]
   sessions          Session[]
-  
+  transactions      Transaction[]
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 }
 
+// تصنيفات المعاملات التي يسجلها المستخدم.
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  ADJUSTMENT
+}
+
+// حسابات مزودي تسجيل الدخول الخارجي، مع ربطها بالمستخدم.
 model Account {
   userId            String
   type              String
@@ -56,6 +70,7 @@ model Account {
   @@map("auth_accounts")
 }
 
+// جلسة تسجيل الدخول؛ يُخزن رمز الجلسة وتاريخ انتهائها.
 model Session {
   sessionToken String   @unique
   userId       String
@@ -67,6 +82,7 @@ model Session {
   @@map("sessions")
 }
 
+// رموز مؤقتة للتحقق من هوية المستخدم أو البريد الإلكتروني.
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -76,6 +92,7 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+// الحساب المالي الذي يملكه المستخدم، مع أرصدته وحركاته المرتبطة.
 model financialAccounts {
   id             String      @id @default(uuid())
   name           String
@@ -86,12 +103,52 @@ model financialAccounts {
   isActive       Boolean     @default(true)
 
   userId             String
-  user               User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  creditLimit        Decimal? @db.Decimal(19, 4)
-  outstandingBalance Decimal? @db.Decimal(19, 4)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  user               User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  creditLimit        Decimal?           @db.Decimal(19, 4)
+  outstandingBalance Decimal?           @db.Decimal(19, 4)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  transactionEntries TransactionEntry[]
 
+  @@unique([id, userId])
   @@index([userId])
   @@map("accounts")
+}
+
+// المعاملة الأساسية التي تصف دخلًا أو مصروفًا أو نوعًا ماليًا آخر.
+model Transaction {
+  id              String          @id @default(uuid())
+  type            TransactionType
+  amount          Decimal         @db.Decimal(19, 4)
+  description     String?
+  transactionDate DateTime        @default(now())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  entries TransactionEntry[]
+
+  @@unique([id, userId])
+  @@index([userId, transactionDate])
+  @@map("transactions")
+}
+
+// قيد يربط المعاملة بحساب ويخزن أثر المبلغ على ذلك الحساب.
+model TransactionEntry {
+  id            String      @id @default(uuid())
+  amount        Decimal     @db.Decimal(19, 4)
+  userId        String
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+
+  accountId String
+  account   financialAccounts @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([transactionId])
+  @@index([accountId, createdAt])
+  @@index([userId])
+  @@map("transaction_entries")
 }

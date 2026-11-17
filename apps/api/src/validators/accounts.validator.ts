@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// قواعد إنشاء حساب جديد، بما فيها نوع الحساب والعملة ورصيد البداية.
 export const createAccountSchema = z.object({
   name: z
     .string()
@@ -21,6 +22,8 @@ export const createAccountSchema = z.object({
     .regex(/^\d+(\.\d{1,4})?$/, "Invalid opening balance")
     .default("0"),
 });
+
+// السماح بتحديث بعض حقول الحساب مع اشتراط إرسال حقل واحد على الأقل.
 export const updateAccountSchema = createAccountSchema
   .partial()
   .refine(

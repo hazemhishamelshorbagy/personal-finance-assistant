@@ -1,10 +1,12 @@
 @import "tailwindcss";
 
+/* ألوان الخلفية والنص الافتراضية التي تستخدمها الصفحة. */
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
+/* ربط متغيرات Tailwind بالألوان والخطوط المعرفة للتطبيق. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -12,6 +14,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* تبديل الألوان تلقائيًا عندما يفضّل نظام المستخدم المظهر الداكن. */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -19,6 +22,7 @@
   }
 }
 
+/* إعداد المظهر الأساسي للنص والخلفية على مستوى الموقع. */
 body {
   background: var(--background);
   color: var(--foreground);

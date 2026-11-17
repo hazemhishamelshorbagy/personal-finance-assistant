@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 
+// إعدادات البناء والتوجيه التجريبي الخاصة بتطبيق الويب.
 const nextConfig: NextConfig = {
   /* config options here */
   experimental: {
@@ -8,6 +9,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
+    // تمرير ملفات CSS عبر محمل Tailwind أثناء البناء باستخدام Turbopack.
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],
