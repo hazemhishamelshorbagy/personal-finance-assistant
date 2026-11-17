@@ -31,6 +31,15 @@ export async function createUserAccount(
     throw new AppError(message, 400);
   }
 
+  // تهيئة حقول بطاقة الائتمان عند إنشائها؛ يبدأ الدين المستحق من الصفر.
+ const creditCardFields =
+  result.data.type === "CREDIT_CARD"
+    ? {
+        creditLimit: result.data.creditLimit,
+        outstandingBalance: result.data.outstandingBalance,
+      }
+    : {};
+
   const account = await prisma.financialAccounts.create({
     data: {
       name: result.data.name,
@@ -39,6 +48,7 @@ export async function createUserAccount(
       openingBalance: result.data.openingBalance,
       currentBalance: result.data.openingBalance,
       userId,
+      ...creditCardFields,
     },
   });
 

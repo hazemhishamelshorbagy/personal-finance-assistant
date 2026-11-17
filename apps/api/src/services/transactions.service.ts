@@ -145,44 +145,41 @@ export async function createExpenseTransaction(userId: string, input: unknown) {
     });
 
     // إنقاص رصيد الحساب بمقدار المصروف.
-   let updatedAccount;
+    let updatedAccount;
 
-if (isCreditCard) {
-  const updateResult = await tx.financialAccounts.updateMany({
-    where: {
-      id: accountId,
-      userId,
-      isActive: true,
-      outstandingBalance: account.outstandingBalance,
-      creditLimit: account.creditLimit,
-    },
-    data: {
-      outstandingBalance: {
-        increment: amount,
-      },
-    },
-  });
+    if (isCreditCard) {
+      const updateResult = await tx.financialAccounts.updateMany({
+        where: {
+          id: accountId,
+          userId,
+          isActive: true,
+          outstandingBalance: account.outstandingBalance,
+          creditLimit: account.creditLimit,
+        },
+        data: {
+          outstandingBalance: {
+            increment: amount,
+          },
+        },
+      });
 
-  if (updateResult.count === 0) {
-    throw new AppError(
-      "Credit card balance changed. Please retry",
-      409,
-    );
-  }
+      if (updateResult.count === 0) {
+        throw new AppError("Credit card balance changed. Please retry", 409);
+      }
 
-  updatedAccount = await tx.financialAccounts.findUniqueOrThrow({
-    where: { id: accountId },
-  });
-} else {
-  updatedAccount = await tx.financialAccounts.update({
-    where: { id: accountId },
-    data: {
-      currentBalance: {
-        decrement: amount,
-      },
-    },
-  });
-}
+      updatedAccount = await tx.financialAccounts.findUniqueOrThrow({
+        where: { id: accountId },
+      });
+    } else {
+      updatedAccount = await tx.financialAccounts.update({
+        where: { id: accountId },
+        data: {
+          currentBalance: {
+            decrement: amount,
+          },
+        },
+      });
+    }
 
     // إعادة المعاملة والحساب بعد تحديث رصيده.
     return {
@@ -308,6 +305,30 @@ export async function createTransferTransaction(
       );
     }
 
+    // لا يُسمح باستخدام بطاقة الائتمان كمصدر للتحويل.
+    if (sourceAccount.type === "CREDIT_CARD") {
+      throw new AppError(
+        "Transfers from credit cards are not supported yet",
+        400,
+      );
+    }
+
+    // عند كون الوجهة بطاقة ائتمان، يُعامل التحويل كسداد للرصيد المستحق.
+    const isCreditCardPayment = destinationAccount.type === "CREDIT_CARD";
+
+    if (isCreditCardPayment) {
+      if (destinationAccount.outstandingBalance === null) {
+        throw new AppError(
+          "Credit card outstanding balance is not configured",
+          400,
+        );
+      }
+
+      if (destinationAccount.outstandingBalance.lessThan(amount)) {
+        throw new AppError("Payment exceeds outstanding balance", 400);
+      }
+    }
+
     // إنشاء سجل رئيسي يصف عملية التحويل بين الحسابين.
     const transaction = await tx.transaction.create({
       data: {
@@ -329,24 +350,14 @@ export async function createTransferTransaction(
           accountId: sourceAccountId,
         },
         {
-          amount,
+          // سداد البطاقة يقلل الدين، بينما الإيداع في الحساب العادي يزيد رصيده.
+          amount: isCreditCardPayment ? `-${amount}` : amount,
           userId,
           transactionId: transaction.id,
           accountId: destinationAccountId,
         },
       ],
     });
-
-    // رفض التحويلات المرتبطة ببطاقات الائتمان؛ تُلغى الكتابات السابقة عند رفضه.
-    if (
-      sourceAccount.type === "CREDIT_CARD" ||
-      destinationAccount.type === "CREDIT_CARD"
-    ) {
-      throw new AppError(
-        "Transfers involving credit cards are not supported yet",
-        400,
-      );
-    }
 
     // خصم المبلغ فقط إذا كان الرصيد الحالي كافيًا، لتجنب الرصيد السالب.
     const sourceUpdate = await tx.financialAccounts.updateMany({
@@ -370,17 +381,46 @@ export async function createTransferTransaction(
       throw new AppError("Insufficient balance", 400);
     }
 
-    // إضافة المبلغ المحوّل إلى رصيد الحساب المستلم.
-    const updatedDestinationAccount = await tx.financialAccounts.update({
-      where: {
-        id: destinationAccountId,
-      },
-      data: {
-        currentBalance: {
-          increment: amount,
+    let updatedDestinationAccount;
+
+    if (isCreditCardPayment) {
+      // خفض الدين فقط إذا لم يتغير الرصيد المستحق منذ التحقق منه.
+      const destinationUpdate = await tx.financialAccounts.updateMany({
+        where: {
+          id: destinationAccountId,
+          userId,
+          isActive: true,
+          outstandingBalance: destinationAccount.outstandingBalance,
         },
-      },
-    });
+        data: {
+          outstandingBalance: {
+            decrement: amount,
+          },
+        },
+      });
+
+      if (destinationUpdate.count === 0) {
+        throw new AppError("Credit card balance changed. Please retry", 409);
+      }
+
+      updatedDestinationAccount = await tx.financialAccounts.findUniqueOrThrow({
+        where: {
+          id: destinationAccountId,
+        },
+      });
+    } else {
+      // إضافة المبلغ إلى رصيد الحساب العادي المستلم.
+      updatedDestinationAccount = await tx.financialAccounts.update({
+        where: {
+          id: destinationAccountId,
+        },
+        data: {
+          currentBalance: {
+            increment: amount,
+          },
+        },
+      });
+    }
 
     // جلب حساب المصدر بعد الخصم لإرجاع الرصيدين المحدثين.
     const updatedSourceAccount = await tx.financialAccounts.findUniqueOrThrow({
@@ -429,10 +469,13 @@ export async function createAdjustmentTransaction(
     if (!account) {
       throw new AppError("Account not found", 404);
     }
+    const isCreditCard = account.type === "CREDIT_CARD";
 
-    // 2. Credit card adjustments need separate balance logic
-    if (account.type === "CREDIT_CARD") {
-      throw new AppError("Credit card adjustments are not supported yet", 400);
+    if (isCreditCard && account.outstandingBalance === null) {
+      throw new AppError(
+        "Credit card outstanding balance is not configured",
+        400,
+      );
     }
 
     // 3. Create the adjustment transaction
@@ -446,8 +489,9 @@ export async function createAdjustmentTransaction(
       },
     });
 
-    // 4. Determine the signed ledger amount
-    const entryAmount = direction === "INCREASE" ? amount : `-${amount}`;
+    // تحديد اتجاه التعديل وقيمة القيد الموقعة مرة واحدة.
+    const isIncrease = direction === "INCREASE";
+    const entryAmount = isIncrease ? amount : `-${amount}`;
 
     await tx.transactionEntry.create({
       data: {
@@ -458,28 +502,41 @@ export async function createAdjustmentTransaction(
       },
     });
 
-    // 5. Update the account balance
-    const updateResult = await tx.financialAccounts.updateMany({
-      where: {
-        id: accountId,
-        userId,
-        isActive: true,
-        ...(direction === "DECREASE"
-          ? { currentBalance: { gte: amount } }
-          : {}),
-      },
-      data: {
-        currentBalance:
-          direction === "INCREASE"
-            ? { increment: amount }
-            : { decrement: amount },
-      },
-    });
+    // تحديث رصيد الدين للبطاقة أو الرصيد النقدي للحساب، حسب نوعه واتجاه التعديل.
+    const updateResult = isCreditCard
+      ? await tx.financialAccounts.updateMany({
+          where: {
+            id: accountId,
+            userId,
+            isActive: true,
+            ...(!isIncrease
+              ? { outstandingBalance: { gte: amount } }
+              : {}),
+          },
+          data: {
+            outstandingBalance: {
+              [isIncrease ? "increment" : "decrement"]: amount,
+            },
+          },
+        })
+      : await tx.financialAccounts.updateMany({
+          where: {
+            id: accountId,
+            userId,
+            isActive: true,
+            ...(!isIncrease ? { currentBalance: { gte: amount } } : {}),
+          },
+          data: {
+            currentBalance: {
+              [isIncrease ? "increment" : "decrement"]: amount,
+            },
+          },
+        });
 
     if (updateResult.count === 0) {
       throw new AppError(
-        "Insufficient balance or account is no longer available",
-        400,
+        "Insufficient balance or account changed. Please retry",
+        409,
       );
     }
 
